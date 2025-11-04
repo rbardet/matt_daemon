@@ -37,6 +37,7 @@ int	create_server(void)
 
 void	exit_client(int epfd, int cfd)
 {
+	n_clients--;
 	epoll_ctl(epfd, EPOLL_CTL_DEL, cfd, NULL);
 	close(cfd);
 }
@@ -85,6 +86,7 @@ void	listen_server(void)
 			{
 				if (n_clients < CONCURRENT_USERS)
 				{
+					n_clients++;
 					cfd = accept(sfd, NULL, 0);
 					epoll_ctl_add(epfd, cfd, EPOLLIN|EPOLLRDHUP);
 				}
