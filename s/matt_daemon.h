@@ -12,10 +12,13 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+// SHIT
+#include <iostream>
+#include <fstream>
+#include <ctime>
+#include <sstream>
 
-#define LOCKLOC "/var/lock/ft_shield.lock"
-
-#define TROLOC "/usr/bin/ft_shield"
+#define LOCKLOC "/var/lock/matt_daemon.lock"
 
 #ifndef LOGIN
 # define LOGIN "cgodard"
@@ -35,9 +38,22 @@
 
 #define BACKLOG 1024
 
-#define SYSTEMD_SERVICE_FILE "/usr/lib/systemd/system/systemd-log-rotate.service"
-#define SYSTEMD_SERVICE_SYMLINK "/etc/systemd/system/multi-user.target.wants/systemd-log-rotate.service"
+#define LOG_FILE "/var/log/matt_daemon/matt_daemon.log"
+#define LOG_DIR "/var/log/matt_daemon"
 
+class Tintin_reporter
+{
+private:
+	std::ofstream log;
+public:
+	Tintin_reporter();
+	~Tintin_reporter();
+
+	void print_log(const std::string level, const std::string message);
+	void print_pid(const std::string level);
+};
+
+extern Tintin_reporter logger;
 extern char **environ;
 
 // lock.c
@@ -45,20 +61,13 @@ int		is_locked(void);
 void	create_lock(void);
 void	delete_lock_at_exit(void);
 
-// systemd.c
-void	create_systemd_service(void);
-
 // socket.c
 void	listen_server(void);
 void	exit_client(int epfd, int fd);
 
 // commands.c
 void	handle_command(int epfd, int cfd);
-void	prompt(int fd);
+void	quit();
 
-// shell.c
-void	shell(int epfd, int cfd);
-void	shell_done(int);
-
-// specific.c
-void	demolinux_specific(void);
+// signals.c
+void	setup_signals();

@@ -1,9 +1,4 @@
-#include "../ft_shield.h"
-
-extern int	g_shelllvl;
-extern int	g_shelling;
-extern int	g_shells[BACKLOG];
-int			g_oks[BACKLOG];
+#include "matt_daemon.h"
 
 int	n_clients = 0;
 
@@ -22,6 +17,7 @@ int	create_server(void)
 	int					opt;
 	struct sockaddr_in	addr;
 
+	logger.print_log("[INFO]", "Creating server.");
 	sfd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0);
 	if (sfd < 0)
 		return (-1);
@@ -35,16 +31,13 @@ int	create_server(void)
 		return (-1);
 	if (listen(sfd, BACKLOG) < 0)
 		return (-1);
+	logger.print_log("[INFO]", "Server created.");
 	return (sfd);
 }
 
 void	exit_client(int epfd, int cfd)
 {
 	epoll_ctl(epfd, EPOLL_CTL_DEL, cfd, NULL);
-	g_shells[cfd] = 0;
-	if (g_oks[cfd])
-		--n_clients;
-	g_oks[cfd] = 0;
 	close(cfd);
 }
 
@@ -54,38 +47,12 @@ void	too_many_users(int cfd)
 	close(cfd);
 }
 
-void	check_password(int epfd, int cfd)
+void enter_daemon_mode()
 {
-	char	buf[4096];
-	ssize_t	n;
-
-	if (n_clients >= CONCURRENT_USERS)
-	{
-		too_many_users(cfd);
-		return ;
-	}
-	n = read(cfd, buf, sizeof buf);
-	if (n <= 0)
-		return ;
-	buf[n-1] = 0;
-	if (strcmp(buf, PASSWORD) == 0)
-	{
-		g_oks[cfd] = 1;
-		++n_clients;
-		if (g_shelling)
-			shell(epfd, cfd);
-		prompt(cfd);
-	}
-	else
-	{
-		write(cfd, INVALID_PASSWORD_MSG, sizeof INVALID_PASSWORD_MSG);
-		exit_client(epfd, cfd);
-	}
-}
-
-void	ask_password(int cfd)
-{
-	write(cfd, PASSWORD_PROMPT, sizeof PASSWORD_PROMPT);
+	daemon(0, 0);
+	logger.print_log("[INFO]", "Entering Daemon mode.");
+	logger.print_pid("[INFO]");
+	setup_signals();
 }
 
 void	listen_server(void)
@@ -101,6 +68,7 @@ void	listen_server(void)
 		return ;
 	epfd = epoll_create(1);
 	epoll_ctl_add(epfd, sfd, EPOLLIN|EPOLLOUT);
+	enter_daemon_mode();
 	while (1)
 	{
 		n = epoll_wait(epfd, events, BACKLOG, -1);
@@ -119,7 +87,6 @@ void	listen_server(void)
 				{
 					cfd = accept(sfd, NULL, 0);
 					epoll_ctl_add(epfd, cfd, EPOLLIN|EPOLLRDHUP);
-					ask_password(cfd);
 				}
 				else
 				{
@@ -128,12 +95,9 @@ void	listen_server(void)
 				}
 			}
 			else if (events[n].events & EPOLLIN
-					&& cfd < BACKLOG && !g_shells[cfd])
+					&& cfd < BACKLOG)
 			{
-				if (!g_oks[cfd])
-					check_password(epfd, cfd);
-				else
-					handle_command(epfd, cfd);
+				handle_command(epfd, cfd);
 			}
 			if (events[n].events & (EPOLLRDHUP|EPOLLHUP|EPOLLERR))
 				exit_client(epfd, cfd);

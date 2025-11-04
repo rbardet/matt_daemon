@@ -1,4 +1,4 @@
-#include "../ft_shield.h"
+#include "matt_daemon.h"
 
 int	is_locked(void)
 {
@@ -26,5 +26,4 @@ void	delete_lock(void)
 void	delete_lock_at_exit(void)
 {
 	atexit(&delete_lock);
-	signal(SIGINT, (void (*)(int))&delete_lock);
 }
